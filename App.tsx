@@ -1,21 +1,25 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 
-const GRID_DATA = [
-  [2, 7, 14, 3, 4, 8, 5, 9, 8, 72, 9, 3, 3],
-  [7, 1, 11, 4, 9, 36, 6, 23, 28, 4, 0, 8, 27],
-  [6, 65, 50, 12, 3, 62, 30, 1, 9, 9, 6, 21, 19],
-  [42, 30, 2, 0, 9, 81, 7, 6, 2, 12, 9, 54, 2],
-  [9, 5, 45, 10, 27, 39, 5, 6, 30, 21, 55, 17, 9],
-  [2, 6, 7, 41, 35, 6, 7, 42, 2, 5, 3, 81, 9],
-  [5, 32, 42, 29, 4, 9, 2, 9, 18, 10, 6, 26, 11],
-  [7, 21, 3, 8, 24, 4, 2, 7, 14, 5, 2, 2, 2],
-  [35, 9, 4, 2, 8, 32, 6, 4, 5, 4, 7, 28, 4],
-  [5, 1, 6, 9, 45, 5, 5, 25, 20, 9, 2, 6, 12],
-  [2, 3, 6, 28, 7, 3, 5, 15, 31, 43, 6, 8, 48],
-  [7, 2, 67, 45, 3, 9, 27, 6, 5, 4, 20, 5, 9],
-  [7, 49, 9, 8, 72, 7, 9, 63, 64, 3, 4, 6, 24]
-];
+// 生成随机棋盘的工具函数
+const generateRandomGrid = (rows: number, cols: number) => {
+  // 乘法口诀中常见的因数和积
+  const pool = [
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 
+    12, 14, 15, 16, 18, 20, 21, 24, 25, 27, 28, 30, 
+    32, 35, 36, 40, 42, 45, 48, 49, 54, 56, 63, 64, 72, 81
+  ];
+  
+  const grid: number[][] = [];
+  for (let r = 0; r < rows; r++) {
+    const row: number[] = [];
+    for (let c = 0; c < cols; c++) {
+      row.push(pool[Math.floor(Math.random() * pool.length)]);
+    }
+    grid.push(row);
+  }
+  return grid;
+};
 
 const HIGHLIGHT_COLORS = [
   '#fef9c3', '#dcfce7', '#e0f2fe', '#fce7f3', '#f3e8ff', 
@@ -29,21 +33,39 @@ interface SolvedItem {
 }
 
 export default function App() {
+  const [level, setLevel] = useState(1);
+  const [grid, setGrid] = useState<number[][]>(() => generateRandomGrid(13, 13));
   const [selected, setSelected] = useState<string[]>([]);
   const [solved, setSolved] = useState<SolvedItem[]>([]);
   const [errorKeys, setErrorKeys] = useState<string[]>([]);
   const [animatingKeys, setAnimatingKeys] = useState<string[]>([]);
   const [msg, setMsg] = useState('点击 3 个相邻数字组成公式');
   const [floatingText, setFloatingText] = useState<{x: number, y: number, text: string} | null>(null);
-  
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [isChangingLevel, setIsChangingLevel] = useState(false);
 
+  // 重置当前关卡（乱序重排）
   const resetGame = () => {
+    setGrid(generateRandomGrid(13, 13));
     setSelected([]);
     setSolved([]);
     setErrorKeys([]);
     setAnimatingKeys([]);
-    setMsg('点击 3 个相邻数字组成公式');
+    setMsg('棋盘已重置并重新乱序');
+  };
+
+  // 下一关
+  const nextLevel = () => {
+    setIsChangingLevel(true);
+    setTimeout(() => {
+      setLevel(prev => prev + 1);
+      setGrid(generateRandomGrid(13, 13));
+      setSelected([]);
+      setSolved([]);
+      setErrorKeys([]);
+      setAnimatingKeys([]);
+      setMsg(`欢迎来到第 ${level + 1} 关`);
+      setIsChangingLevel(false);
+    }, 600);
   };
 
   const isAdjacent = (k1: string, k2: string) => {
@@ -62,19 +84,21 @@ export default function App() {
   };
 
   const handleCellClick = (r: number, c: number, e: React.TouchEvent | React.MouseEvent) => {
-    e.preventDefault();
-    const key = `${r}-${c}`;
-    if (solved.some(s => s.keys.includes(key)) || animatingKeys.includes(key)) return;
-
-    // 获取坐标逻辑，兼容触摸
+    if (isChangingLevel) return;
+    
+    // 兼容触摸与鼠标
     let x, y;
     if ('touches' in e) {
+      // 触屏模式下不调用 preventDefault 可能会导致某些浏览器无法触发点击，但这里为了防止缩放必须处理
       x = e.touches[0].clientX;
       y = e.touches[0].clientY;
     } else {
       x = (e as React.MouseEvent).clientX;
       y = (e as React.MouseEvent).clientY;
     }
+
+    const key = `${r}-${c}`;
+    if (solved.some(s => s.keys.includes(key)) || animatingKeys.includes(key)) return;
 
     if (selected.includes(key)) {
       setSelected(prev => prev.filter(k => k !== key));
@@ -93,12 +117,13 @@ export default function App() {
   const validate = (keys: string[], clickX: number, clickY: number) => {
     const vals = keys.map(k => {
       const [r, c] = k.split('-').map(Number);
-      return GRID_DATA[r][c];
+      return grid[r][c];
     });
 
     const [v1, v2, v3] = vals;
     let formula = '';
     
+    // 校验乘法逻辑
     if (v1 * v2 === v3) formula = `${v1}×${v2}=${v3}`;
     else if (v1 * v3 === v2) formula = `${v1}×${v3}=${v2}`;
     else if (v2 * v3 === v1) formula = `${v2}×${v3}=${v1}`;
@@ -122,7 +147,7 @@ export default function App() {
       if ('vibrate' in navigator) navigator.vibrate([40, 30, 40]);
     } else {
       setErrorKeys(keys);
-      setMsg(validChain ? '不成口诀' : '必须相连');
+      setMsg(validChain ? '不成口诀' : '必须相邻');
       if ('vibrate' in navigator) navigator.vibrate(120);
       
       setTimeout(() => {
@@ -142,22 +167,27 @@ export default function App() {
         <div className="absolute bottom-[-20%] right-[-20%] w-[80%] h-[80%] bg-emerald-50 rounded-full blur-[150px] animate-pulse"></div>
       </div>
 
-      <div className="w-full max-w-[600px] bg-white/70 backdrop-blur-3xl rounded-[3rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.12)] border border-white p-6 md:p-10 flex flex-col items-stretch">
+      <div className={`w-full max-w-[600px] bg-white/70 backdrop-blur-3xl rounded-[3rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.12)] border border-white p-6 md:p-10 flex flex-col items-stretch transition-all duration-500 ${isChangingLevel ? 'scale-95 opacity-50 blur-sm' : 'scale-100 opacity-100'}`}>
         
-        {/* 标题 */}
-        <div className="text-center mb-8">
-          <div className="inline-block px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black tracking-widest uppercase mb-3">
-            Math Training v3.0
+        {/* 标题 & 关卡指示器 */}
+        <div className="text-center mb-6">
+          <div className="flex justify-center gap-2 mb-3">
+            <div className="px-3 py-1 bg-indigo-600 text-white rounded-full text-[10px] font-black tracking-widest uppercase">
+              Level {level}
+            </div>
+            <div className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black tracking-widest uppercase">
+              Solved: {solved.length}
+            </div>
           </div>
-          <h1 className="text-4xl font-black text-slate-900 leading-none">
+          <h1 className="text-3xl font-black text-slate-900 leading-none">
             乘法消消乐
           </h1>
         </div>
 
-        {/* 棋盘 3D Container */}
+        {/* 3D 棋盘容器 */}
         <div className="perspective-1200 relative">
-          <div className="grid grid-cols-13 bg-slate-100 gap-[1px] p-[1px] rounded-3xl overflow-hidden shadow-[0_20px_40px_-10px_rgba(0,0,0,0.1)] border-4 border-white transform-gpu rotate-x-2 transition-transform duration-700 ease-out hover:rotate-x-0">
-            {GRID_DATA.map((row, r) => row.map((val, c) => {
+          <div className="grid grid-cols-13 bg-slate-200/50 gap-[1px] p-[1.5px] rounded-3xl overflow-hidden shadow-[0_20px_40px_-10px_rgba(0,0,0,0.1)] border-4 border-white transform-gpu rotate-x-2 transition-transform duration-700 ease-out">
+            {grid.map((row, r) => row.map((val, c) => {
               const key = `${r}-${c}`;
               const isSelected = selected.includes(key);
               const isError = errorKeys.includes(key);
@@ -178,7 +208,7 @@ export default function App() {
                     ${isSelected ? 'text-white scale-90 z-10 rounded-lg shadow-xl' : 'text-slate-700'}
                     ${isError ? 'animate-shake bg-red-100 text-red-600 z-20' : ''}
                     ${isSuccessAnim ? 'animate-bounce-custom z-30' : ''}
-                    ${solvedItem ? 'font-black' : 'hover:bg-slate-50'}
+                    ${solvedItem ? 'font-black opacity-90' : 'hover:bg-slate-50'}
                   `}
                 >
                   <span className={`text-[10px] sm:text-base font-bold pointer-events-none transition-transform ${isSuccessAnim ? 'scale-150' : ''}`}>
@@ -191,31 +221,40 @@ export default function App() {
         </div>
 
         {/* 反馈条 */}
-        <div className="mt-10 h-10 flex items-center justify-center">
-          <div className={`px-8 py-2 rounded-full text-sm font-black transition-all duration-500 ${msg.includes('Bingo') ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 scale-110' : 'bg-slate-100 text-slate-400'}`}>
+        <div className="mt-8 h-8 flex items-center justify-center">
+          <div className={`px-6 py-1.5 rounded-full text-xs font-black transition-all duration-500 ${msg.includes('Bingo') ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 text-slate-400'}`}>
             {msg}
           </div>
         </div>
 
-        {/* 底部操作 */}
-        <div className="mt-8 flex gap-4">
+        {/* 底部操作区 */}
+        <div className="mt-6 flex flex-col gap-3">
+          <div className="flex gap-3">
+            <button 
+              onClick={() => setSolved(prev => prev.slice(0, -1))}
+              disabled={solved.length === 0}
+              className="flex-1 h-14 bg-white border-2 border-slate-100 text-slate-500 rounded-2xl text-sm font-black active:scale-95 disabled:opacity-20 transition-all shadow-sm"
+            >
+              撤回
+            </button>
+            <button 
+              onClick={resetGame}
+              className="flex-1 h-14 bg-white border-2 border-indigo-50 text-indigo-600 rounded-2xl text-sm font-black active:scale-95 transition-all shadow-sm"
+            >
+              重置乱序
+            </button>
+          </div>
           <button 
-            onClick={() => setSolved(prev => prev.slice(0, -1))}
-            disabled={solved.length === 0}
-            className="flex-1 h-16 bg-white border-2 border-slate-100 text-slate-500 rounded-[1.5rem] text-sm font-black active:scale-95 disabled:opacity-20 transition-all shadow-sm"
+            onClick={nextLevel}
+            className="w-full h-16 bg-slate-900 text-white rounded-[1.5rem] text-lg font-black active:scale-95 transition-all shadow-2xl shadow-indigo-100 flex items-center justify-center gap-2"
           >
-            撤回
-          </button>
-          <button 
-            onClick={resetGame}
-            className="flex-1 h-16 bg-slate-900 text-white rounded-[1.5rem] text-sm font-black active:scale-95 transition-all shadow-2xl shadow-indigo-100"
-          >
-            重置
+            下一关 
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>
           </button>
         </div>
       </div>
 
-      {/* 悬浮公示 */}
+      {/* 漂浮公式动画 */}
       {floatingText && (
         <div 
           className="fixed pointer-events-none animate-float-up text-indigo-600 font-black text-3xl z-[100] drop-shadow-[0_10px_10px_rgba(0,0,0,0.2)]"
