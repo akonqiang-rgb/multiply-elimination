@@ -1,27 +1,21 @@
-
 {
-  "name": "multiplication-elimination-3d",
+  "name": "multiplication-elimination-webapp",
   "version": "1.0.0",
-  "description": "乘法消消乐 3D 桌面版",
-  "main": "main.js",
+  "description": "乘法消消乐 WebApp 版 - 针对移动端优化",
+  "dependencies": {
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.4.2",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "three": "^0.182.0",
+    "vite": "^5.0.0"
+  },
   "scripts": {
-    "start": "electron .",
-    "pack": "electron-builder --win --portable"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
-  "author": "Senior Frontend Engineer",
   "devDependencies": {
-    "electron": "^31.0.0",
-    "electron-builder": "^24.13.3"
-  },
-  "build": {
-    "appId": "com.mathgame.3d",
-    "productName": "乘法消消乐3D",
-    "win": {
-      "target": "portable",
-      "icon": "icon.ico"
-    },
-    "directories": {
-      "output": "dist"
-    }
+    "@vitejs/plugin-react": "^5.1.2"
   }
 }

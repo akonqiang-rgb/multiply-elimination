@@ -1,7 +1,6 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 
-// 严格按照图片内容校对的 13x13 矩阵数据
 const GRID_DATA = [
   [2, 7, 14, 3, 4, 8, 5, 9, 8, 72, 9, 3, 3],
   [7, 1, 11, 4, 9, 36, 6, 23, 28, 4, 0, 8, 27],
@@ -36,6 +35,8 @@ export default function App() {
   const [animatingKeys, setAnimatingKeys] = useState<string[]>([]);
   const [msg, setMsg] = useState('点击 3 个相邻数字组成公式');
   const [floatingText, setFloatingText] = useState<{x: number, y: number, text: string} | null>(null);
+  
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const resetGame = () => {
     setSelected([]);
@@ -60,9 +61,20 @@ export default function App() {
     );
   };
 
-  const handleCellClick = (r: number, c: number, e: React.MouseEvent) => {
+  const handleCellClick = (r: number, c: number, e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault();
     const key = `${r}-${c}`;
     if (solved.some(s => s.keys.includes(key)) || animatingKeys.includes(key)) return;
+
+    // 获取坐标逻辑，兼容触摸
+    let x, y;
+    if ('touches' in e) {
+      x = e.touches[0].clientX;
+      y = e.touches[0].clientY;
+    } else {
+      x = (e as React.MouseEvent).clientX;
+      y = (e as React.MouseEvent).clientY;
+    }
 
     if (selected.includes(key)) {
       setSelected(prev => prev.filter(k => k !== key));
@@ -73,7 +85,7 @@ export default function App() {
       const next = [...selected, key];
       setSelected(next);
       if (next.length === 3) {
-        validate(next, e.clientX, e.clientY);
+        validate(next, x, y);
       }
     }
   };
@@ -94,7 +106,6 @@ export default function App() {
     const validChain = isChain(keys);
 
     if (formula && validChain) {
-      // 成功流程
       setAnimatingKeys(keys);
       const color = HIGHLIGHT_COLORS[solved.length % HIGHLIGHT_COLORS.length];
       
@@ -108,12 +119,11 @@ export default function App() {
         setMsg(`Bingo! ${formula}`);
       }, 400);
 
-      if ('vibrate' in navigator) navigator.vibrate([30, 10, 30]);
+      if ('vibrate' in navigator) navigator.vibrate([40, 30, 40]);
     } else {
-      // 失败流程
       setErrorKeys(keys);
       setMsg(validChain ? '不成口诀' : '必须相连');
-      if ('vibrate' in navigator) navigator.vibrate(100);
+      if ('vibrate' in navigator) navigator.vibrate(120);
       
       setTimeout(() => {
         setErrorKeys([]);
@@ -122,37 +132,31 @@ export default function App() {
     }
   };
 
-  const undo = () => {
-    setSolved(prev => prev.slice(0, -1));
-    setMsg('已撤销上一步');
-  };
-
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4 font-sans select-none overflow-hidden">
+    <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-hidden touch-none">
       
-      {/* 背景动态装饰 */}
-      <div className="fixed inset-0 pointer-events-none opacity-20">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-200 rounded-full blur-[120px]"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-green-100 rounded-full blur-[120px]"></div>
+      {/* 动态背景 */}
+      <div className="fixed inset-0 -z-10 pointer-events-none overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-full bg-[#F8FAFC]"></div>
+        <div className="absolute top-[-20%] left-[-20%] w-[80%] h-[80%] bg-indigo-100 rounded-full blur-[150px] animate-pulse"></div>
+        <div className="absolute bottom-[-20%] right-[-20%] w-[80%] h-[80%] bg-emerald-50 rounded-full blur-[150px] animate-pulse"></div>
       </div>
 
-      <div className="bg-white/80 backdrop-blur-xl w-full max-w-[650px] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] rounded-[2.5rem] flex flex-col p-6 md:p-10 relative border border-white">
+      <div className="w-full max-w-[600px] bg-white/70 backdrop-blur-3xl rounded-[3rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.12)] border border-white p-6 md:p-10 flex flex-col items-stretch">
         
-        {/* 标题栏 */}
+        {/* 标题 */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight">
-            乘法消消乐 <span className="text-blue-500 font-medium text-lg ml-2">1-9</span>
-          </h1>
-          <div className="flex flex-wrap justify-center gap-6 mt-6 text-[11px] text-slate-400 font-medium uppercase tracking-widest">
-            <span className="border-b border-slate-100 pb-1">Class: ____</span>
-            <span className="border-b border-slate-100 pb-1">Name: ____</span>
-            <span className="border-b border-slate-100 pb-1">No: ____</span>
+          <div className="inline-block px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black tracking-widest uppercase mb-3">
+            Math Training v3.0
           </div>
+          <h1 className="text-4xl font-black text-slate-900 leading-none">
+            乘法消消乐
+          </h1>
         </div>
 
-        {/* 主棋盘 */}
-        <div className="relative group perspective-1000">
-          <div className="grid grid-cols-13 bg-slate-200 gap-[1.5px] p-[1.5px] rounded-2xl overflow-hidden shadow-2xl shadow-slate-200/50 border border-slate-200 transform-gpu transition-transform duration-500 hover:rotate-x-1 hover:rotate-y-1">
+        {/* 棋盘 3D Container */}
+        <div className="perspective-1200 relative">
+          <div className="grid grid-cols-13 bg-slate-100 gap-[1px] p-[1px] rounded-3xl overflow-hidden shadow-[0_20px_40px_-10px_rgba(0,0,0,0.1)] border-4 border-white transform-gpu rotate-x-2 transition-transform duration-700 ease-out hover:rotate-x-0">
             {GRID_DATA.map((row, r) => row.map((val, c) => {
               const key = `${r}-${c}`;
               const isSelected = selected.includes(key);
@@ -163,71 +167,58 @@ export default function App() {
               return (
                 <div
                   key={key}
+                  onTouchStart={(e) => handleCellClick(r, c, e)}
                   onMouseDown={(e) => handleCellClick(r, c, e)}
                   style={{ 
-                    backgroundColor: isSelected ? '#3B82F6' : (solvedItem?.color || '#FFFFFF') 
+                    backgroundColor: isSelected ? '#4F46E5' : (solvedItem?.color || '#FFFFFF') 
                   }}
                   className={`
                     aspect-square flex items-center justify-center relative
-                    cursor-pointer transition-all duration-300 transform-gpu
-                    ${isSelected ? 'text-white scale-90 z-10 rounded-lg shadow-lg' : 'text-slate-700'}
-                    ${isError ? 'animate-error bg-red-50 text-red-600 z-20' : ''}
-                    ${isSuccessAnim ? 'animate-success z-30' : ''}
-                    ${solvedItem ? 'font-bold opacity-100' : 'hover:bg-slate-50'}
+                    transition-all duration-300 transform-gpu
+                    ${isSelected ? 'text-white scale-90 z-10 rounded-lg shadow-xl' : 'text-slate-700'}
+                    ${isError ? 'animate-shake bg-red-100 text-red-600 z-20' : ''}
+                    ${isSuccessAnim ? 'animate-bounce-custom z-30' : ''}
+                    ${solvedItem ? 'font-black' : 'hover:bg-slate-50'}
                   `}
                 >
-                  <span className={`text-[10px] sm:text-sm md:text-base font-bold transition-transform ${isSuccessAnim ? 'scale-150' : ''}`}>
+                  <span className={`text-[10px] sm:text-base font-bold pointer-events-none transition-transform ${isSuccessAnim ? 'scale-150' : ''}`}>
                     {val}
                   </span>
-                  {isSuccessAnim && (
-                    <div className="absolute inset-0 bg-white rounded-full animate-ping opacity-75"></div>
-                  )}
                 </div>
               );
             }))}
           </div>
         </div>
 
-        {/* 消息提示 (Glassmorphism) */}
-        <div className="mt-8 flex justify-center">
-          <div className={`px-6 py-2 rounded-full text-sm font-semibold transition-all duration-500 ${msg.includes('Bingo') ? 'bg-green-500 text-white shadow-lg shadow-green-200 scale-110' : 'bg-slate-100 text-slate-400'}`}>
+        {/* 反馈条 */}
+        <div className="mt-10 h-10 flex items-center justify-center">
+          <div className={`px-8 py-2 rounded-full text-sm font-black transition-all duration-500 ${msg.includes('Bingo') ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 scale-110' : 'bg-slate-100 text-slate-400'}`}>
             {msg}
           </div>
         </div>
 
-        {/* 操作区 */}
+        {/* 底部操作 */}
         <div className="mt-8 flex gap-4">
           <button 
-            onClick={undo}
+            onClick={() => setSolved(prev => prev.slice(0, -1))}
             disabled={solved.length === 0}
-            className="flex-1 h-14 bg-white border-2 border-slate-100 text-slate-500 rounded-2xl text-sm font-bold active:scale-95 disabled:opacity-20 transition-all hover:bg-slate-50 hover:border-slate-200 shadow-sm"
+            className="flex-1 h-16 bg-white border-2 border-slate-100 text-slate-500 rounded-[1.5rem] text-sm font-black active:scale-95 disabled:opacity-20 transition-all shadow-sm"
           >
-            撤销上步
+            撤回
           </button>
           <button 
             onClick={resetGame}
-            className="flex-1 h-14 bg-slate-900 text-white rounded-2xl text-sm font-bold active:scale-95 transition-all shadow-xl shadow-slate-200 hover:bg-slate-800"
+            className="flex-1 h-16 bg-slate-900 text-white rounded-[1.5rem] text-sm font-black active:scale-95 transition-all shadow-2xl shadow-indigo-100"
           >
-            重新开始
+            重置
           </button>
-        </div>
-
-        {/* 底部信息 */}
-        <div className="mt-6 flex justify-between items-center px-4">
-          <div className="text-[10px] text-slate-300 font-bold uppercase tracking-widest flex items-center gap-2">
-            <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-            System Live
-          </div>
-          <div className="text-slate-400 text-xs font-medium">
-            Progress: <span className="text-slate-800 font-black">{solved.length}</span> / 50
-          </div>
         </div>
       </div>
 
-      {/* 悬浮气泡动效 */}
+      {/* 悬浮公示 */}
       {floatingText && (
         <div 
-          className="fixed pointer-events-none animate-float-up text-blue-600 font-black text-2xl z-[100] drop-shadow-lg"
+          className="fixed pointer-events-none animate-float-up text-indigo-600 font-black text-3xl z-[100] drop-shadow-[0_10px_10px_rgba(0,0,0,0.2)]"
           style={{ left: floatingText.x, top: floatingText.y }}
         >
           {floatingText.text}
@@ -236,31 +227,27 @@ export default function App() {
 
       <style>{`
         .grid-cols-13 { grid-template-columns: repeat(13, minmax(0, 1fr)); }
+        .perspective-1200 { perspective: 1200px; }
         
-        @keyframes error {
+        @keyframes shake {
           0%, 100% { transform: translateX(0); }
-          20%, 60% { transform: translateX(-4px); }
-          40%, 80% { transform: translateX(4px); }
+          25% { transform: translateX(-4px) rotate(-1deg); }
+          75% { transform: translateX(4px) rotate(1deg); }
         }
-        .animate-error { animation: error 0.4s ease-in-out; }
+        .animate-shake { animation: shake 0.3s ease-in-out infinite; }
 
-        @keyframes success {
-          0% { transform: scale(1); }
-          50% { transform: scale(1.3); filter: brightness(1.5); }
-          100% { transform: scale(1); }
+        @keyframes bounce-custom {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.4) translateY(-10px); }
         }
-        .animate-success { animation: success 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .animate-bounce-custom { animation: bounce-custom 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
 
         @keyframes float-up {
-          0% { transform: translate(-50%, 0); opacity: 0; }
-          20% { opacity: 1; }
-          100% { transform: translate(-50%, -100px); opacity: 0; }
+          0% { transform: translate(-50%, 0); opacity: 0; scale: 0.5; }
+          20% { opacity: 1; scale: 1.2; }
+          100% { transform: translate(-50%, -150px); opacity: 0; scale: 1.5; }
         }
-        .animate-float-up { animation: float-up 1s ease-out forwards; }
-
-        .perspective-1000 { perspective: 1000px; }
-        .rotate-x-1 { transform: rotateX(2deg); }
-        .rotate-y-1 { transform: rotateY(2deg); }
+        .animate-float-up { animation: float-up 1s cubic-bezier(0.23, 1, 0.32, 1) forwards; }
       `}</style>
     </div>
   );
