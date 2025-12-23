@@ -1,0 +1,17 @@
+
+{
+  "name": "乘法消消乐 3D",
+  "short_name": "乘法消消乐",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#e5e7eb",
+  "theme_color": "#4f46e5",
+  "description": "一个简单的数字乘法消除游戏，找到相邻的三个数组成乘法公式即可消除。",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3771/3771278.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

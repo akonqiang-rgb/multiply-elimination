@@ -1,0 +1,27 @@
+
+{
+  "name": "multiplication-elimination-3d",
+  "version": "1.0.0",
+  "description": "乘法消消乐 3D 桌面版",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --win --portable"
+  },
+  "author": "Senior Frontend Engineer",
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.mathgame.3d",
+    "productName": "乘法消消乐3D",
+    "win": {
+      "target": "portable",
+      "icon": "icon.ico"
+    },
+    "directories": {
+      "output": "dist"
+    }
+  }
+}
